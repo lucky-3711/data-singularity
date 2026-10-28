@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#000000" />
+<title>数据黑洞 · DATA SINGULARITY</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="favicon.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="黑洞" />
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+
+<!-- 画面质感层 -->
+<div class="fx fx-vignette" aria-hidden="true"></div>
+
+<div class="reticle" id="reticle" aria-hidden="true">
+  <i class="rx"></i><i class="ry"></i><b id="rcoord">X 0.000  Y 0.000</b>
+</div>
+
+<!-- 仪器边框 -->
+<div class="frame" aria-hidden="true">
+  <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+  <span class="frame-label left"></span>
+  <span class="frame-label right"></span>
+</div>
+
+<div class="hud" id="hud">
+  <header class="hud-top">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><i></i></div>
+      <div class="brand-txt">
+        <b>黑洞</b>
+        
+      </div>
+    </div>
+
+    <div class="live">
+      <span class="live-dot"></span><span class="k">LIVE</span>
+      <span class="bar"></span>
+      <span class="sig" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="num" id="fps">60</span><span class="u">FPS</span>
+      <span class="bar"></span>
+      <span class="num" id="nodes">0</span><span class="u">NODES</span>
+      <button class="snd" id="snd-toggle" title="声音">◑</button>
+      <button class="snd reset" id="reset-all" title="重置全部">↻</button>
+    </div>
+  </header>
+
+
+
+  <div class="voicecap" id="voicecap" aria-live="polite">
+    <span class="vc-wave"><i></i><i></i><i></i><i></i></span>
+    <b id="vc-text"></b>
+  </div>
+
+  <div class="sysline" aria-hidden="true">
+    
+    <span class="sl">CAM</span><b id="sys-cam">+0.00 / 0.28 / 18.5</b>
+    <span class="sl">FLOW</span><b id="sys-flow">000.0</b>
+    <span class="sl">V</span><b id="sys-v">—</b>
+    <span class="sl">A</span><b id="sys-a">—</b>
+    <span class="sl">T+</span><b id="sys-t">00:00:00</b>
+  </div>
+
+  <aside class="panel" id="panel">
+    <div class="panel-head">
+      <span>观测参数 <em>OBSERVATION</em></span>
+      <span class="crawl" data-fmt="hex" aria-hidden="true"></span>
+      <button class="panel-min" id="panel-min" aria-label="收起面板">−</button>
+    </div>
+    <div class="panel-body">
+      <div class="ctl">
+        <div class="ctl-row"><span>数据密度</span><em id="v-density">1.00</em></div>
+        <input id="s-density" type="range" min="0.30" max="1.30" step="0.01" value="1.00" aria-label="数据密度" />
+      </div>
+      <div class="ctl">
+        <div class="ctl-row"><span>引力透镜</span><em id="v-lens">1.00</em></div>
+        <input id="s-lens" type="range" min="0.20" max="1.80" step="0.01" value="1.00" aria-label="引力透镜" />
+      </div>
+      <div class="ctl">
+        <div class="ctl-row"><span>流转速度</span><em id="v-speed">1.00</em></div>
+        <input id="s-speed" type="range" min="0.00" max="2.40" step="0.01" value="1.00" aria-label="流转速度" />
+      </div>
+
+      <div class="sub" id="sub-color">
+        <button class="sub-head" id="color-toggle"><span>色彩轨道</span><em>COLOR</em><i>−</i></button>
+        <div class="sub-body" id="color-body">
+          <div class="track" id="color-track"><i id="track-knob"></i></div>
+          <div class="modes" id="color-modes">
+            <button data-mode="mono">单色</button>
+            <button data-mode="multi">多色</button>
+            <button data-mode="gradient">渐变</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub" id="sub-wave">
+        <button class="sub-head" id="wave-toggle"><span>声波频谱</span><em>SPECTRUM</em><i>−</i></button>
+        <div class="sub-body" id="wave-body">
+          <canvas id="wave" width="420" height="86"></canvas>
+          <div class="wave-meta"><span id="wave-hz">—</span><span id="wave-st">IDLE</span></div>
+        </div>
+      </div>
+      <div class="panel-actions">
+        <button class="btn" id="btn-pause">暂停</button>
+        <button class="btn" id="btn-reset">重置视角</button>
+      </div>
+    </div>
+  </aside>
+
+  <footer class="hud-bottom">
+    <div class="telemetry">
+      <div class="tm"><span>MASS</span><b>8.4×10⁶ M☉</b></div>
+      <div class="tm"><span>SPIN</span><b>a* = 0.94</b></div>
+      <div class="tm"><span>ISCO</span><b>3.02 r<sub>s</sub></b></div>
+      <div class="tm"><span>T<sub>H</sub></span><b>6.2×10⁻⁹ K</b></div>
+    </div>
+    <div class="hint">
+      <span><i>拖拽</i> 旋转</span>
+      <span><i>滚轮</i> 推近</span>
+      <span><i>单击数据</i> 锁定读数</span>
+    </div>
+  </footer>
+
+  <button class="ingest-open" id="ingest-open">
+    <span class="io-plus">＋</span><span class="io-t">投入</span>
+  </button>
+
+  <div class="trace" id="trace-card" aria-hidden="true">
+    <div class="tr-head"><b id="tr-id">TRACE 0x0000</b><em>LOCKED</em></div>
+    <div class="tr-mood" id="tr-mood">平静</div>
+    <div class="tr-meta"><span id="tr-v">V +0.00</span><span id="tr-a">A 0.00</span></div>
+    <div class="tr-line" id="tr-line">&nbsp;</div>
+  </div>
+  <div class="archive" id="archive" aria-label="解析档案"></div>
+  <aside class="analysis" id="analysis" aria-label="数据分析">
+    <header class="an-head"><b>ANALYSIS</b><em>数据参数</em><button id="an-close" aria-label="关闭">✕</button></header>
+    <div class="an-rows" id="an-rows"></div>
+    <div class="an-chart"><span>VALENCE</span><canvas id="an-v" width="252" height="48"></canvas></div>
+    <div class="an-chart"><span>AROUSAL</span><canvas id="an-a" width="252" height="48"></canvas></div>
+    <div class="an-pal" id="an-pal"></div>
+  </aside>
+
+
+  <!-- 解析流水线 -->
+  <section class="pipeline" id="pipeline" aria-live="polite">
+    <header class="pipe-head">
+      <span class="pipe-dot"></span>
+      <b>EMOTION ANALYSIS</b>
+      <em id="pipe-kind">TEXT</em>
+      <span class="crawl" data-fmt="bin" aria-hidden="true"></span>
+      <span class="pipe-state" id="pipe-state">SCANNING</span>
+    </header>
+    <div class="pipe-steps" id="pipe-steps"></div>
+    <footer class="pipe-foot">
+      <div class="pipe-bar"><i id="pipe-bar"></i></div>
+      <div class="pipe-meta"><span id="pipe-meta-l">V —</span><span id="pipe-meta-r">A —</span></div>
+    </footer>
+  </section>
+</div>
+
+<!-- 投入数据的弹层 -->
+<section class="modal" id="ingest" role="dialog" aria-modal="true" aria-label="投入数据">
+  <div class="modal-card">
+    <header class="modal-head">
+      <div>
+        <b>投入数据</b>
+        <span>INGEST / EMOTION PROBE</span>
+      </div>
+      <button class="modal-x" id="ingest-close" aria-label="关闭">✕</button>
+    </header>
+
+    <div class="tabs" id="tabs">
+      <button data-tab="text" class="on">文 字</button>
+      <button data-tab="image">图 像</button>
+    </div>
+
+    <div class="tab-body" data-body="text">
+      <textarea id="in-text" spellcheck="false" placeholder="粘贴一段文字——日记、歌词、评论、代码注释都可以。&#10;它会读出字里行间的情绪，并把视界染成对应的颜色。"></textarea>
+      <div class="samples">
+        <span>试试：</span>
+        <button data-sample="joy">喜悦</button>
+        <button data-sample="anger">愤怒</button>
+        <button data-sample="sad">忧郁</button>
+        <button data-sample="calm">平静</button>
+      </div>
+    </div>
+
+    <div class="tab-body" data-body="image" hidden>
+      <div class="drop" id="drop">
+        <b>拖入一张图片</b>
+        <span>或点击选择 · PNG / JPG / WebP</span>
+        <input id="in-file" type="file" accept="image/*" hidden />
+      </div>
+      <img class="preview" id="preview" alt="" hidden />
+      <div class="samples" id="img-meta"></div>
+    </div>
+
+    <footer class="modal-foot">
+      <span class="modal-note" id="modal-note">解析在本机完成 · 不上传</span>
+      <button class="btn-primary" id="ingest-run">解析并投入 <i>→</i></button>
+    </footer>
+  </div>
+</section>
+
+<!-- 迎宾层 -->
+<div class="boot" id="boot">
+  <div class="boot-inner">
+    <h1>黑洞</h1>
+    <button class="boot-orb" id="boot-enter" aria-label="进入">
+      <span class="orb-ring"></span>
+      <span class="orb-core"></span>
+    </button>
+  </div>
+</div>
+
+<noscript><div class="noscript">需要开启 JavaScript 与 WebGL2 才能观测这个黑洞。</div></noscript>
+<script>
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+</script>
+<script src="soul.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>
