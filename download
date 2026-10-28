@@ -1,0 +1,17 @@
+# local / machine specific
+黑洞.lnk
+*.lnk
+
+# os junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# editors
+.vscode/
+.idea/
+*.swp
+
+# logs / temp
+*.log
+node_modules/
